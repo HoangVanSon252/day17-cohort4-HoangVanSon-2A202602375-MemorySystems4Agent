@@ -25,28 +25,52 @@ class LabConfig:
     judge_model: ProviderConfig
 
 
-def load_config(base_dir: Path | None = None) -> LabConfig:
-    """Student TODO: load environment variables and return a LabConfig.
+import os
+from dotenv import load_dotenv
 
-    Pseudocode:
-    1. Resolve the repo root or default to the current file parent.
-    2. Optionally load values from `.env`.
-    3. Create `state/` if it does not exist.
-    4. Return a populated LabConfig instance.
-    """
+def load_config(base_dir: Path | None = None) -> LabConfig:
+    """Load environment variables and return a LabConfig."""
 
     root = (base_dir or Path(__file__).resolve().parent.parent).resolve()
 
-    # TODO: read env vars for one of the supported providers.
-    # Example knobs:
-    # - LLM_PROVIDER / LLM_MODEL
-    # - OPENAI_API_KEY
-    # - GEMINI_API_KEY
-    # - ANTHROPIC_API_KEY
-    # - OLLAMA_BASE_URL
-    # - OPENROUTER_API_KEY
-    # - CUSTOM_BASE_URL / CUSTOM_API_KEY
-    # TODO: create `root / "state"`.
-    # TODO: choose sensible defaults for compact memory.
+    load_dotenv(root / ".env")
 
-    raise NotImplementedError("Students should implement load_config().")
+    state_dir = root / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    provider = os.getenv("LLM_PROVIDER", "openai")
+    model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    
+    # Simple logic to get the correct API key / Base URL
+    api_key = os.getenv(f"{provider.upper()}_API_KEY")
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY") if provider in ["openai", "custom", "openrouter"] else None
+
+    base_url = os.getenv(f"{provider.upper()}_BASE_URL")
+
+    model = ProviderConfig(
+        provider=provider,
+        model_name=model_name,
+        temperature=0.0,
+        api_key=api_key,
+        base_url=base_url
+    )
+
+    # For simplicity, use the same model as judge model
+    judge_model = ProviderConfig(
+        provider=provider,
+        model_name=model_name,
+        temperature=0.0,
+        api_key=api_key,
+        base_url=base_url
+    )
+
+    return LabConfig(
+        base_dir=root,
+        data_dir=root / "data",
+        state_dir=state_dir,
+        compact_threshold_tokens=500,
+        compact_keep_messages=4,
+        model=model,
+        judge_model=judge_model
+    )
